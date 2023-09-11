@@ -81,6 +81,14 @@ func receiveStringFromSerial(portName string, mode serial.Mode, term rune) (stri
 	return string(buff), nil
 }
 
+func getParities(p map[string]serial.Parity) []string {
+	keys := make([]string, 0, len(p))
+	for s := range p {
+		keys = append(keys, s)
+	}
+	return keys
+}
+
 func main() {
 	a := app.New()
 	ico, _ := fyne.LoadResourceFromPath(".\\resources\\icon.png")
@@ -129,6 +137,23 @@ func main() {
 	txSpeedDropdown.SetSelectedIndex(0)
 	rxSpeedDropdown.SetSelectedIndex(0)
 
+	var parityMap = map[string]serial.Parity{
+		"No Parity":    serial.NoParity,
+		"Odd Parity":   serial.OddParity,
+		"Even Parity":  serial.EvenParity,
+		"Mark Parity":  serial.MarkParity,
+		"Space Parity": serial.SpaceParity,
+	}
+	var parity serial.Parity
+	paritySelect := widget.NewSelect(
+		getParities(parityMap),
+		func(v string) {
+			parity = parityMap[v]
+			log.Println("Parity:", v)
+		},
+	)
+	paritySelect.SetSelectedIndex(0)
+
 	input := widget.NewEntry()
 	var inputMessage string
 	inputMessageBinding := binding.BindString(&inputMessage)
@@ -142,8 +167,8 @@ func main() {
 
 	buttonStart := widget.NewButton("Send", func() {
 		msg, _ := inputMessageBinding.Get()
-		sendStringToSerial(txPortName, serial.Mode{BaudRate: txSpeed}, msg+"\n")
-		rxMsg, err := receiveStringFromSerial(rxPortName, serial.Mode{BaudRate: rxSpeed}, '\n')
+		sendStringToSerial(txPortName, serial.Mode{BaudRate: txSpeed, Parity: parity}, msg+"\n")
+		rxMsg, err := receiveStringFromSerial(rxPortName, serial.Mode{BaudRate: rxSpeed, Parity: parity}, '\n')
 		if err != nil {
 			log.Fatal(err)
 			return
@@ -160,6 +185,7 @@ func main() {
 		container.NewHBox(widget.NewLabel("TX port:"), txDropdown),
 		container.NewHBox(widget.NewLabel("RX speed:"), rxSpeedDropdown),
 		container.NewHBox(widget.NewLabel("TX speed:"), txSpeedDropdown),
+		paritySelect,
 		input,
 		receivedText,
 		buttonStart,
