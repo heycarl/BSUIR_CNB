@@ -2,6 +2,7 @@ package main
 
 import (
 	"CNB/internal/colorTheme"
+	"CNB/internal/com"
 	"fmt"
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
@@ -11,19 +12,7 @@ import (
 	"go.bug.st/serial"
 	"log"
 	"strconv"
-	"strings"
 )
-
-func scanPorts() []string {
-	ports, err := serial.GetPortsList()
-	if err != nil {
-		log.Fatal(err)
-	}
-	if len(ports) == 0 {
-		log.Fatal("No serial ports found!")
-	}
-	return ports
-}
 
 func serializeIntSlice(input []int) []string {
 	var valuesText []string
@@ -33,52 +22,6 @@ func serializeIntSlice(input []int) []string {
 		valuesText = append(valuesText, text)
 	}
 	return valuesText
-}
-
-func sendStringToSerial(portName string, mode serial.Mode, msg string) {
-	port, err := serial.Open(portName, &mode)
-	if err != nil {
-		log.Fatal(err)
-		return
-	}
-	n, err := port.Write([]byte(msg))
-	log.Printf("Written %d bytes\n", n)
-	err = port.Close()
-	if err != nil {
-		return
-	}
-}
-
-func receiveStringFromSerial(portName string, mode serial.Mode, term rune) (string, error) {
-	port, rxErr := serial.Open(portName, &mode)
-	if rxErr != nil {
-		log.Printf("Port %s open failed\n", portName)
-		return "", rxErr
-	}
-
-	buff := make([]byte, 256)
-	var rxBytes = 0
-	var err error
-	for {
-		rxBytes, err = port.Read(buff)
-		if err != nil {
-			log.Fatal(err)
-			return "", err
-		}
-		if rxBytes == 0 {
-			log.Println("\nEOF")
-			break
-		}
-		if strings.Contains(string(buff[:rxBytes]), string(term)) {
-			break
-		}
-	}
-	err = port.Close()
-	if err != nil {
-		return "", err
-	}
-	log.Printf("Recieved %d bytes\n", rxBytes)
-	return string(buff), nil
 }
 
 func getParities(p map[string]serial.Parity) []string {
@@ -95,20 +38,20 @@ func main() {
 	a.SetIcon(ico)
 	a.Settings().SetTheme(colorTheme.GreyTheme())
 
-	window := a.NewWindow("OCN LAB1")
-	window.Resize(fyne.Size{Width: 400, Height: 250})
+	mainWindow := a.NewWindow("OCN LAB1")
+	mainWindow.Resize(fyne.Size{Width: 400, Height: 250})
 
 	var rxPortName string
 	var txPortName string
 	rxDropdown := widget.NewSelect(
-		scanPorts(),
+		com.ScanPorts(),
 		func(v string) {
 			rxPortName = v
 			fmt.Println("RX port changed:", v)
 		},
 	)
 	txDropdown := widget.NewSelect(
-		scanPorts(),
+		com.ScanPorts(),
 		func(v string) {
 			txPortName = v
 			fmt.Println("TX port changed:", v)
@@ -137,18 +80,11 @@ func main() {
 	txSpeedDropdown.SetSelectedIndex(0)
 	rxSpeedDropdown.SetSelectedIndex(0)
 
-	var parityMap = map[string]serial.Parity{
-		"No Parity":    serial.NoParity,
-		"Odd Parity":   serial.OddParity,
-		"Even Parity":  serial.EvenParity,
-		"Mark Parity":  serial.MarkParity,
-		"Space Parity": serial.SpaceParity,
-	}
 	var parity serial.Parity
 	paritySelect := widget.NewSelect(
-		getParities(parityMap),
+		getParities(com.ParityMap),
 		func(v string) {
-			parity = parityMap[v]
+			parity = com.ParityMap[v]
 			log.Println("Parity:", v)
 		},
 	)
@@ -167,8 +103,8 @@ func main() {
 
 	buttonStart := widget.NewButton("Send", func() {
 		msg, _ := inputMessageBinding.Get()
-		sendStringToSerial(txPortName, serial.Mode{BaudRate: txSpeed, Parity: parity}, msg+"\n")
-		rxMsg, err := receiveStringFromSerial(rxPortName, serial.Mode{BaudRate: rxSpeed, Parity: parity}, '\n')
+		com.SendStringToSerial(txPortName, serial.Mode{BaudRate: txSpeed, Parity: parity}, msg+"\n")
+		rxMsg, err := com.ReceiveStringFromSerial(rxPortName, serial.Mode{BaudRate: rxSpeed, Parity: parity}, '\n')
 		if err != nil {
 			log.Fatal(err)
 			return
@@ -191,6 +127,6 @@ func main() {
 		buttonStart,
 	)
 
-	window.SetContent(l)
-	window.ShowAndRun()
+	mainWindow.SetContent(l)
+	mainWindow.ShowAndRun()
 }
