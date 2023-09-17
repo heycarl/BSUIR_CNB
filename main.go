@@ -3,6 +3,7 @@ package main
 import (
 	"CNB/internal/colorTheme"
 	"CNB/internal/com"
+	"CNB/internal/comPacket"
 	"fmt"
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
@@ -38,7 +39,7 @@ func main() {
 	a.SetIcon(ico)
 	a.Settings().SetTheme(colorTheme.GreyTheme())
 
-	mainWindow := a.NewWindow("OCN LAB1")
+	mainWindow := a.NewWindow("OCN LAB2")
 	mainWindow.Resize(fyne.Size{Width: 400, Height: 250})
 
 	var rxPortName string
@@ -103,13 +104,21 @@ func main() {
 
 	buttonStart := widget.NewButton("Send", func() {
 		msg, _ := inputMessageBinding.Get()
-		com.SendStringToSerial(txPortName, serial.Mode{BaudRate: txSpeed, Parity: parity}, msg+"\n")
-		rxMsg, err := com.ReceiveStringFromSerial(rxPortName, serial.Mode{BaudRate: rxSpeed, Parity: parity}, '\n')
+		com.Port{
+			Name:   txPortName,
+			Speed:  txSpeed,
+			Parity: parity,
+		}.WriteBytes(comPacket.CreatePacket([]byte(msg + "\n")).SerializePacket())
+		packet, err := com.Port{
+			Name:   rxPortName,
+			Speed:  rxSpeed,
+			Parity: parity,
+		}.ReadPacket()
 		if err != nil {
 			log.Fatal(err)
 			return
 		}
-		err = receivedMessageBinding.Set(rxMsg)
+		err = receivedMessageBinding.Set(string(packet.Data))
 		if err != nil {
 			log.Fatal(err)
 			return

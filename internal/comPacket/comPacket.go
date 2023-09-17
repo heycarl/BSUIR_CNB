@@ -1,57 +1,87 @@
 package comPacket
 
 import (
-	"bytes"
-	"encoding/binary"
+	"errors"
+	"log"
 )
 
-type ComPacket struct {
-	header   byte
-	checksum [4]byte
-	payload  []byte
+const PacketHeader = 'z' + 0
+const byteStuffingEsc = 'z' + 33
+
+type Packet struct {
+	Header             byte
+	DestinationAddress byte
+	SourceAddress      byte
+	Data               []byte
+	Fcs                byte
 }
 
-func CreatePacket(payload []byte, headerByte byte) ComPacket {
-	var packet ComPacket
-	packet.header = headerByte
-	packet.payload = ByteStuffing(payload, headerByte)
+func CreatePacket(payload []byte) Packet {
+	packet := Packet{
+		Header:             PacketHeader,
+		DestinationAddress: 0,
+		SourceAddress:      0,
+		Data:               payload,
+		Fcs:                1,
+	}
 	return packet
 }
 
-func ByteStuffing(data []byte, headerByte byte) []byte {
-	output := bytes.Buffer{}
+func (p Packet) SerializePacket() []byte {
+	var packetBytes []byte
+	packetBytes = append(packetBytes, p.Header, p.DestinationAddress, p.SourceAddress)
+	packetBytes = append(packetBytes, byteStuffing(p.Data)...)
+	packetBytes = append(packetBytes, p.Fcs)
+	return packetBytes
+}
+
+func DeserializePacket(raw []byte) (Packet, error) {
+	if raw[0] != PacketHeader {
+		return Packet{}, errors.New("incorrect header byte")
+	}
+	packet := Packet{
+		Header:             raw[0],
+		DestinationAddress: raw[1],
+		SourceAddress:      raw[2],
+		Data:               deByteStuffing(raw[3 : len(raw)-1]),
+		Fcs:                raw[len(raw)-1]}
+	return packet, nil
+}
+
+func byteStuffing(data []byte) []byte {
+	var byteStuffed []byte
 	for _, b := range data {
-		if b == headerByte {
-			output.WriteByte(headerByte)
-			output.WriteByte(0x01)
-		} else {
-			output.WriteByte(b)
+		if b == PacketHeader || b == byteStuffingEsc {
+			byteStuffed = append(byteStuffed, byteStuffingEsc)
 		}
+		byteStuffed = append(byteStuffed, b)
 	}
-	return output.Bytes()
+	if len(data) != len(byteStuffed) {
+		log.Println("Byte stuffing:\n", data, " -> ", byteStuffed)
+	}
+	return byteStuffed
 }
 
-func getPayloadSize(packet []byte) int {
-	payloadSizeBytes := packet[:3]
-	payloadSize := int(binary.BigEndian.Uint32(payloadSizeBytes))
-	return payloadSize
-}
+func deByteStuffing(data []byte) []byte {
+	var deByteStuffed []byte
+	escaped := false // flag to track if the previous byte was the escape byte
 
-func DeByteStuffing(data []byte, headerByte byte) []byte {
-	payload := bytes.Buffer{}
-	i := 0
-	for i < len(data) {
-		if data[i] == headerByte {
-			i++
-			if i < len(data) && data[i] == 0x01 {
-				payload.WriteByte(headerByte)
-			} else {
-				panic("Invalid byte stuffing")
+	for _, b := range data {
+		if escaped {
+			if b == PacketHeader || b == byteStuffingEsc {
+				deByteStuffed = append(deByteStuffed, b)
 			}
+			escaped = false
 		} else {
-			payload.WriteByte(data[i])
+			if b == byteStuffingEsc {
+				escaped = true
+			} else {
+				deByteStuffed = append(deByteStuffed, b)
+			}
 		}
-		i++
 	}
-	return payload.Bytes()
+	if len(data) != len(deByteStuffed) {
+		log.Println("Byte de-stuffing:\n", data, " -> ", deByteStuffed)
+	}
+	return deByteStuffed
 }
