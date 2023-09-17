@@ -1,9 +1,9 @@
 package com
 
 import (
+	"CNB/internal/comPacket"
 	"go.bug.st/serial"
 	"log"
-	"strings"
 )
 
 var ParityMap = map[string]serial.Parity{
@@ -14,13 +14,19 @@ var ParityMap = map[string]serial.Parity{
 	"Space Parity": serial.SpaceParity,
 }
 
-func SendStringToSerial(portName string, mode serial.Mode, msg string) {
-	port, err := serial.Open(portName, &mode)
+type Port struct {
+	Name   string
+	Speed  int
+	Parity serial.Parity
+}
+
+func (p Port) WriteBytes(payload []byte) {
+	port, err := serial.Open(p.Name, &serial.Mode{BaudRate: p.Speed, Parity: p.Parity})
 	if err != nil {
 		log.Fatal(err)
 		return
 	}
-	n, err := port.Write([]byte(msg))
+	n, err := port.Write(payload)
 	log.Printf("Written %d bytes\n", n)
 	err = port.Close()
 	if err != nil {
@@ -28,36 +34,39 @@ func SendStringToSerial(portName string, mode serial.Mode, msg string) {
 	}
 }
 
-func ReceiveStringFromSerial(portName string, mode serial.Mode, term rune) (string, error) {
-	port, rxErr := serial.Open(portName, &mode)
-	if rxErr != nil {
-		log.Printf("Port %s open failed\n", portName)
-		return "", rxErr
+func (p Port) ReceiveBytes() ([]byte, error) {
+	port, err := serial.Open(p.Name, &serial.Mode{BaudRate: p.Speed, Parity: p.Parity})
+	if err != nil {
+		log.Printf("Port %s open failed\n", p.Name)
+		return nil, err
 	}
 
 	buff := make([]byte, 256)
-	var rxBytes = 0
-	var err error
-	for {
-		rxBytes, err = port.Read(buff)
-		if err != nil {
-			log.Fatal(err)
-			return "", err
-		}
-		if rxBytes == 0 {
-			log.Println("\nEOF")
-			break
-		}
-		if strings.Contains(string(buff[:rxBytes]), string(term)) {
-			break
-		}
+	var n, readErr = port.Read(buff)
+	if readErr != nil {
+		return nil, err
 	}
 	err = port.Close()
+
+	log.Printf("Recieved %d bytes\n", n)
+	return buff[:n], nil
+}
+
+func (p Port) WritePacket(packet comPacket.Packet) {
+	p.WriteBytes(packet.SerializePacket())
+}
+
+func (p Port) ReadPacket() (comPacket.Packet, error) {
+	rawPacketData, err := p.ReceiveBytes()
 	if err != nil {
-		return "", err
+		log.Println(err)
+		return comPacket.Packet{}, err
 	}
-	log.Printf("Recieved %d bytes\n", rxBytes)
-	return string(buff), nil
+	packet, err := comPacket.DeserializePacket(rawPacketData)
+	if err != nil {
+		return comPacket.Packet{}, err
+	}
+	return packet, nil
 }
 
 func ScanPorts() []string {
