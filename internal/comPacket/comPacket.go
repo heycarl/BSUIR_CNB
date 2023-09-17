@@ -1,57 +1,42 @@
 package comPacket
 
-import (
-	"bytes"
-	"encoding/binary"
-)
+const PacketHeader = 'z' + 4
+const byteStuffingEsc = 'z' + 33
 
-type ComPacket struct {
-	header   byte
-	checksum [4]byte
-	payload  []byte
+type Packet struct {
+	Header             byte
+	DestinationAddress byte
+	SourceAddress      byte
+	Data               []byte
+	Fcs                byte
 }
 
-func CreatePacket(payload []byte, headerByte byte) ComPacket {
-	var packet ComPacket
-	packet.header = headerByte
-	packet.payload = ByteStuffing(payload, headerByte)
-	return packet
+func CreatePacket(payload []byte) []byte {
+	packet := Packet{
+		Header:             PacketHeader,
+		DestinationAddress: 0,
+		SourceAddress:      0,
+		Data:               payload,
+		Fcs:                0,
+	}
+	return packet.serializePacket()
 }
 
-func ByteStuffing(data []byte, headerByte byte) []byte {
-	output := bytes.Buffer{}
+func (p Packet) serializePacket() []byte {
+	var packetBytes []byte
+	packetBytes = append(packetBytes, p.Header, p.DestinationAddress, p.SourceAddress)
+	packetBytes = append(packetBytes, byteStuffing(p.Data)...)
+	packetBytes = append(packetBytes, p.Fcs)
+	return packetBytes
+}
+
+func byteStuffing(data []byte) []byte {
+	var byteStuffed []byte
 	for _, b := range data {
-		if b == headerByte {
-			output.WriteByte(headerByte)
-			output.WriteByte(0x01)
-		} else {
-			output.WriteByte(b)
+		if b == PacketHeader || b == byteStuffingEsc {
+			byteStuffed = append(byteStuffed, byteStuffingEsc)
 		}
+		byteStuffed = append(byteStuffed, b)
 	}
-	return output.Bytes()
-}
-
-func getPayloadSize(packet []byte) int {
-	payloadSizeBytes := packet[:3]
-	payloadSize := int(binary.BigEndian.Uint32(payloadSizeBytes))
-	return payloadSize
-}
-
-func DeByteStuffing(data []byte, headerByte byte) []byte {
-	payload := bytes.Buffer{}
-	i := 0
-	for i < len(data) {
-		if data[i] == headerByte {
-			i++
-			if i < len(data) && data[i] == 0x01 {
-				payload.WriteByte(headerByte)
-			} else {
-				panic("Invalid byte stuffing")
-			}
-		} else {
-			payload.WriteByte(data[i])
-		}
-		i++
-	}
-	return payload.Bytes()
+	return byteStuffed
 }
