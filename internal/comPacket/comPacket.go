@@ -1,8 +1,11 @@
 package comPacket
 
-import "errors"
+import (
+	"errors"
+	"log"
+)
 
-const PacketHeader = 'z' + 4
+const PacketHeader = 'z' + 0
 const byteStuffingEsc = 'z' + 33
 
 type Packet struct {
@@ -19,7 +22,7 @@ func CreatePacket(payload []byte) Packet {
 		DestinationAddress: 0,
 		SourceAddress:      0,
 		Data:               payload,
-		Fcs:                0,
+		Fcs:                1,
 	}
 	return packet
 }
@@ -40,7 +43,7 @@ func DeserializePacket(raw []byte) (Packet, error) {
 		Header:             raw[0],
 		DestinationAddress: raw[1],
 		SourceAddress:      raw[2],
-		Data:               deByteStuffing(raw[2 : len(raw)-1]),
+		Data:               deByteStuffing(raw[3 : len(raw)-1]),
 		Fcs:                raw[len(raw)-1]}
 	return packet, nil
 }
@@ -52,6 +55,9 @@ func byteStuffing(data []byte) []byte {
 			byteStuffed = append(byteStuffed, byteStuffingEsc)
 		}
 		byteStuffed = append(byteStuffed, b)
+	}
+	if len(data) != len(byteStuffed) {
+		log.Println("Byte stuffing:\n", data, " -> ", byteStuffed)
 	}
 	return byteStuffed
 }
@@ -73,6 +79,9 @@ func deByteStuffing(data []byte) []byte {
 				deByteStuffed = append(deByteStuffed, b)
 			}
 		}
+	}
+	if len(data) != len(deByteStuffed) {
+		log.Println("Byte de-stuffing:\n", data, " -> ", deByteStuffed)
 	}
 	return deByteStuffed
 }

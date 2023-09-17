@@ -39,7 +39,7 @@ func main() {
 	a.SetIcon(ico)
 	a.Settings().SetTheme(colorTheme.GreyTheme())
 
-	mainWindow := a.NewWindow("OCN LAB1")
+	mainWindow := a.NewWindow("OCN LAB2")
 	mainWindow.Resize(fyne.Size{Width: 400, Height: 250})
 
 	var rxPortName string
