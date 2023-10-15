@@ -37,3 +37,20 @@ func Decode(bits []byte) []byte {
 
 	return data
 }
+
+func DecodeByte(bits []byte) byte {
+	var byteAccumulator byte
+
+	for _, bit := range bits {
+		byteAccumulator = (byteAccumulator << 1) | bit
+	}
+	return byteAccumulator
+}
+
+func FlipBit(b *byte) {
+	if *b == 0 {
+		*b = 1
+	} else {
+		*b = 0
+	}
+}
