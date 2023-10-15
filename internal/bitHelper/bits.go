@@ -13,6 +13,15 @@ func Encode(data []byte) []byte {
 	return bits
 }
 
+func EncodeByte(b byte) []byte {
+	var bits []byte
+	for i := 7; i >= 0; i-- {
+		bit := b >> uint(i) & 1
+		bits = append(bits, bit)
+	}
+	return bits
+}
+
 func Decode(bits []byte) []byte {
 	var data []byte
 	var byteAccumulator byte
