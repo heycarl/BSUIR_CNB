@@ -1,6 +1,7 @@
 package comPacket
 
 import (
+	"CNB/internal/hammingCode"
 	"errors"
 	"log"
 )
@@ -30,7 +31,9 @@ func CreatePacket(payload []byte) Packet {
 func (p Packet) SerializePacket() []byte {
 	var packetBytes []byte
 	packetBytes = append(packetBytes, p.Header, p.DestinationAddress, p.SourceAddress)
-	packetBytes = append(packetBytes, byteStuffing(p.Data)...)
+	frameData := hammingCode.Encode(p.Data)
+	frameData = byteStuffing(frameData)
+	packetBytes = append(packetBytes, frameData...)
 	packetBytes = append(packetBytes, p.Fcs)
 	return packetBytes
 }
@@ -39,11 +42,13 @@ func DeserializePacket(raw []byte) (Packet, error) {
 	if raw[0] != PacketHeader {
 		return Packet{}, errors.New("incorrect header byte")
 	}
+	payloadBytes := deByteStuffing(raw[3 : len(raw)-1])
+	payloadBytes, _ = hammingCode.Decode(payloadBytes)
 	packet := Packet{
 		Header:             raw[0],
 		DestinationAddress: raw[1],
 		SourceAddress:      raw[2],
-		Data:               deByteStuffing(raw[3 : len(raw)-1]),
+		Data:               payloadBytes,
 		Fcs:                raw[len(raw)-1]}
 	return packet, nil
 }
