@@ -1276,6 +1276,20 @@ Telnet базируется на клиент-серверной модели и
 ## Линейные коды (кодирование)
 ## Помехоустойчивые коды (расчеты)
 ## Код Хэмминга и циклический код (кодирование)
+### CRC
+- CRC-1 - $x + 1$
+- CRC-4 - $x^4 + x + 1$
+- CRC-4 - $x^4 + x^3 + 1$
+- CRC-5 - $x^5 + x^3 + 1$
+- CRC-5 - $x^6 + x + 1$
+![image](assets/crc_correct.png)
+![image](assets/crc_incorrect.png)
+### Код хэмминга
+$n_{bits} = \bigl \lfloor log_{2}(M_{bits}+1) \bigr \rceil$
+
+![image](assets/hamming.png)
+![image](assets/hamming2.png)
+
 ## Поля Галуа (математические операции)
 ![image](assets/ПоляГалуа.jpg)
 ## Адресация в компьютерных сетях (примеры)
